@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer API Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0f1115;
+            color: #00f3ff;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #00f3ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        button {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #7c3aed;
+        }
+        .result {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .warning { color: #f59e0b; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Timer API Debug Tool</h1>
+    <p>This tool helps diagnose timer API connection issues</p>
+
+    <div class="test-section">
+        <h2>Test 1: Check Environment Variable</h2>
+        <button onclick="checkEnvVar()">Check VITE_API_URL</button>
+        <div id="env-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Test Backend Connection</h2>
+        <button onclick="testBackend()">Test Backend Health</button>
+        <div id="backend-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Get Active Timer</h2>
+        <button onclick="getActiveTimer()">Get Active Timer</button>
+        <div id="timer-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Start Timer (POST)</h2>
+        <button onclick="startTimer()">Start Timer</button>
+        <div id="start-result" class="result"></div>
+    </div>
+
+    <script>
+        // This will be replaced by Vite during build
+        const API_URL = import.meta.env.VITE_API_URL;
+
+        function checkEnvVar() {
+            const result = document.getElementById('env-result');
+            if (API_URL) {
+                result.innerHTML = `<span class="success">✓ VITE_API_URL is set:</span>\n${API_URL}`;
+            } else {
+                result.innerHTML = `<span class="error">✗ VITE_API_URL is NOT set (undefined)</span>\n\nThis means the environment variable was not configured during build.\n\nFix:\n1. Go to Vercel Dashboard\n2. Settings → Environment Variables\n3. Add: VITE_API_URL = https://prajwalan2k26-api.onrender.com/api\n4. Redeploy the project`;
+            }
+        }
+
+        async function testBackend() {
+            const result = document.getElementById('backend-result');
+            result.innerHTML = '<span class="warning">Testing...</span>';
+
+            const testUrl = API_URL ? `${API_URL}/health` : 'https://prajwalan2k26-api.onrender.com/api/health';
+            
+            try {
+                const response = await fetch(testUrl);
+                const data = await response.json();
+                
+                result.innerHTML = `<span class="success">✓ Backend is responding</span>\n\nURL: ${testUrl}\nStatus: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Backend connection failed</span>\n\nURL: ${testUrl}\nError: ${error.message}\n\nPossible causes:\n- CORS issue\n- Backend is down\n- Network error`;
+            }
+        }
+
+        async function getActiveTimer() {
+            const result = document.getElementById('timer-result');
+            result.innerHTML = '<span class="warning">Fetching...</span>';
+
+            const testUrl = API_URL ? `${API_URL}/timer/active` : 'https://prajwalan2k26-api.onrender.com/api/timer/active';
+            
+            try {
+                const response = await fetch(testUrl);
+                const data = await response.json();
+                
+                if (data.data) {
+                    const hours = Math.floor(data.data.remainingTime / 3600000);
+                    const minutes = Math.floor((data.data.remainingTime % 3600000) / 60000);
+                    
+                    result.innerHTML = `<span class="success">✓ Active timer found</span>\n\nURL: ${testUrl}\nStatus: ${response.status}\nTime Remaining: ${hours}h ${minutes}m\n\nFull Response:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    result.innerHTML = `<span class="warning">⚠ No active timer</span>\n\nURL: ${testUrl}\nStatus: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Failed to get timer</span>\n\nURL: ${testUrl}\nError: ${error.message}`;
+            }
+        }
+
+        async function startTimer() {
+            const result = document.getElementById('start-result');
+            result.innerHTML = '<span class="warning">Starting timer...</span>';
+
+            const testUrl = API_URL ? `${API_URL}/timer/start` : 'https://prajwalan2k26-api.onrender.com/api/timer/start';
+            
+            try {
+                const response = await fetch(testUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        event: 'timer_started',
+                        timestamp: Date.now(),
+                        message: 'Test timer from debug tool'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.innerHTML = `<span class="success">✓ Timer started successfully</span>\n\nURL: ${testUrl}\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    result.innerHTML = `<span class="error">✗ Failed to start timer</span>\n\nURL: ${testUrl}\nStatus: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Failed to start timer</span>\n\nURL: ${testUrl}\nError: ${error.message}\n\nPossible causes:\n- CORS issue (backend not allowing timer URL)\n- Network error\n- Backend error`;
+            }
+        }
+
+        // Auto-run env check on load
+        window.onload = () => {
+            checkEnvVar();
+        };
+    </script>
+</body>
+</html>
