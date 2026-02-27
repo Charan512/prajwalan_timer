@@ -5,8 +5,9 @@ const TimerContext = createContext(null);
 
 const TOTAL_DURATION_SECONDS = 86400; // 24 hours (24 * 60 * 60)
 
-// Connect to real-time timer server
-const socket = io(import.meta.env.VITE_TIMER_SOCKET_URL || 'http://localhost:4000');
+const socket = io(import.meta.env.VITE_TIMER_SOCKET_URL || 'http://localhost:4000', {
+    transports: ['websocket', 'polling'], // Explicitly fall back to polling if websocket fails (fixes Render proxy issues)
+});
 
 export function TimerProvider({ children }) {
     const [stateObj, setStateObj] = useState({
