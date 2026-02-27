@@ -152,6 +152,10 @@ io.on('connection', (socket) => {
     });
 });
 
+app.get('/api/ping', (req, res) => {
+    res.status(200).send('pong');
+});
+
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
     console.log(`Timer synchronization server running on port ${PORT}`);
