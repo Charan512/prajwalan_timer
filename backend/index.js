@@ -10,9 +10,11 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: process.env.FRONTEND_URL || '*',
+        origin: '*', // Allow all origins to avoid CORS issues on Render
         methods: ['GET', 'POST']
-    }
+    },
+    transports: ['websocket', 'polling'], // Ensure compatibility with Render's proxies
+    allowEIO3: true // Allow older Socket.IO clients just in case
 });
 
 const TOTAL_DURATION_SECONDS = 86400; // 24 hours
