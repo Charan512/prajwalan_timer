@@ -1,110 +1,104 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import io from 'socket.io-client';
 
 const TimerContext = createContext(null);
 
 const TOTAL_DURATION_SECONDS = 86400; // 24 hours (24 * 60 * 60)
-const STORAGE_KEY = 'prajwalan2k26_react_timer';
+
+// Connect to real-time timer server
+const socket = io(import.meta.env.VITE_TIMER_SOCKET_URL || 'http://localhost:4000');
 
 export function TimerProvider({ children }) {
-    const [remainingSeconds, setRemainingSeconds] = useState(TOTAL_DURATION_SECONDS);
-    const [isRunning, setIsRunning] = useState(false); // Start paused
-    const [hasStarted, setHasStarted] = useState(false); // Track if timer has ever been started
-    const [startTimestamp, setStartTimestamp] = useState(null);
+    const [stateObj, setStateObj] = useState({
+        duration: TOTAL_DURATION_SECONDS,
+        isRunning: false,
+        hasStarted: false,
+        startedAt: null,
+        remainingSeconds: TOTAL_DURATION_SECONDS,
+    });
+
     const [showStartAnimation, setShowStartAnimation] = useState(false);
     const [showEndAnimation, setShowEndAnimation] = useState(false);
 
-    // Clear any existing saved state on mount to always start fresh
+    // Sync from the server
     useEffect(() => {
-        localStorage.removeItem(STORAGE_KEY);
+        socket.on('SYNC_STATE', (state) => {
+            setStateObj({
+                duration: state.duration,
+                isRunning: state.isRunning,
+                hasStarted: state.hasStarted,
+                startedAt: state.startedAt,
+                remainingSeconds: state.remaining
+            });
+
+            if (state.remaining === 0 && state.hasStarted) {
+                setShowEndAnimation(true);
+            } else if (state.remaining > 0) {
+                setShowEndAnimation(false);
+            }
+        });
+
+        return () => {
+            socket.off('SYNC_STATE');
+        };
     }, []);
 
-    // Save state periodically - DISABLED to prevent auto-restart on reload
-    // useEffect(() => {
-    //     const saveState = () => {
-    //         localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    //             timestamp: Date.now(),
-    //             remaining: remainingSeconds,
-    //             running: isRunning,
-    //             started: hasStarted
-    //         }));
-    //     };
-    //     saveState();
-    //     const interval = setInterval(saveState, 10000);
-    //     return () => clearInterval(interval);
-    // }, [remainingSeconds, isRunning, hasStarted]);
-
-    // Countdown logic
+    // Local precise countdown logic
     useEffect(() => {
-        if (!isRunning || remainingSeconds <= 0) {
-            if (remainingSeconds === 0 && hasStarted) {
-                setShowEndAnimation(true);
-            }
-            return;
-        }
+        if (!stateObj.isRunning || !stateObj.startedAt) return;
 
         const interval = setInterval(() => {
-            setRemainingSeconds(prev => {
-                const newValue = Math.max(0, prev - 1);
+            setStateObj(prev => {
+                const elapsed = Math.floor((Date.now() - prev.startedAt) / 1000);
+                const newValue = Math.max(0, prev.duration - elapsed);
                 if (newValue === 0) {
                     setShowEndAnimation(true);
                 }
-                return newValue;
+                return { ...prev, remainingSeconds: newValue };
             });
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRunning, remainingSeconds, hasStarted]);
+    }, [stateObj.isRunning, stateObj.startedAt]);
 
-    // Timer controls
+    // UI actions that trigger server events
     const start = useCallback(() => {
         setShowStartAnimation(true);
     }, []);
 
     const onStartAnimationComplete = useCallback(() => {
         setShowStartAnimation(false);
-        setHasStarted(true);
-        setIsRunning(true);
-        if (!startTimestamp) {
-            setStartTimestamp(Date.now());
-        }
-    }, [startTimestamp]);
+        socket.emit('START');
+    }, []);
 
-    const pause = useCallback(() => setIsRunning(false), []);
-    const toggle = useCallback(() => setIsRunning(prev => !prev), []);
+    const pause = useCallback(() => socket.emit('PAUSE'), []);
+    const toggle = useCallback(() => socket.emit('TOGGLE'), []);
 
     const reset = useCallback(() => {
-        setRemainingSeconds(TOTAL_DURATION_SECONDS);
-        setIsRunning(false);
-        setHasStarted(false);
-        setStartTimestamp(null);
+        socket.emit('RESET');
         setShowStartAnimation(false);
         setShowEndAnimation(false);
-        localStorage.removeItem(STORAGE_KEY);
     }, []);
 
     const setTime = useCallback((hours, minutes, seconds) => {
-        const total = (hours * 3600) + (minutes * 60) + seconds;
-        // Allow setting any reasonable time (up to 99 hours for flexibility)
-        const maxAllowedSeconds = 99 * 3600; // 99 hours max
-        setRemainingSeconds(Math.max(0, Math.min(maxAllowedSeconds, total)));
+        socket.emit('SET_TIME', { hours, minutes, seconds });
     }, []);
 
     const skipForward = useCallback((seconds = 3600) => {
-        setRemainingSeconds(prev => Math.max(0, prev - seconds));
+        socket.emit('SKIP_FORWARD', { seconds });
     }, []);
 
     const skipBackward = useCallback((seconds = 3600) => {
-        const maxAllowedSeconds = 99 * 3600; // 99 hours max
-        setRemainingSeconds(prev => Math.min(maxAllowedSeconds, prev + seconds));
+        socket.emit('SKIP_BACKWARD', { seconds });
     }, []);
 
-    const progress = 1 - (remainingSeconds / TOTAL_DURATION_SECONDS);
-    const percentage = ((TOTAL_DURATION_SECONDS - remainingSeconds) / TOTAL_DURATION_SECONDS) * 100;
+    const progress = 1 - (stateObj.remainingSeconds / TOTAL_DURATION_SECONDS);
+    const percentage = ((TOTAL_DURATION_SECONDS - stateObj.remainingSeconds) / TOTAL_DURATION_SECONDS) * 100;
 
     const value = {
-        remainingSeconds,
-        isRunning,
-        hasStarted,
+        remainingSeconds: stateObj.remainingSeconds,
+        isRunning: stateObj.isRunning,
+        hasStarted: stateObj.hasStarted,
         progress,
         percentage,
         totalDuration: TOTAL_DURATION_SECONDS,
