@@ -60,37 +60,12 @@ export function TimerProvider({ children }) {
         setShowStartAnimation(true);
     }, []);
 
-    const onStartAnimationComplete = useCallback(async () => {
+    const onStartAnimationComplete = useCallback(() => {
         setShowStartAnimation(false);
         setHasStarted(true);
         setIsRunning(true);
         if (!startTimestamp) {
             setStartTimestamp(Date.now());
-        }
-
-        // Send API signal that timer has started
-        try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/timer/start`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    event: 'timer_started',
-                    timestamp: Date.now(),
-                    message: 'Prajwalan 2k26 timer has been ignited!'
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                console.log('✅ Timer start signal sent successfully:', data);
-            } else {
-                console.warn('⚠️ Timer start signal failed:', response.status);
-            }
-        } catch (error) {
-            // Don't break the timer if API fails
-            console.error('❌ Failed to send timer start signal:', error);
         }
     }, [startTimestamp]);
 
