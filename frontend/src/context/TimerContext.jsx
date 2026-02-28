@@ -7,6 +7,11 @@ const TOTAL_DURATION_SECONDS = 86400; // 24 hours (24 * 60 * 60)
 
 const socket = io(import.meta.env.VITE_TIMER_SOCKET_URL || 'http://localhost:4000', {
     transports: ['websocket', 'polling'], // Explicitly fall back to polling if websocket fails (fixes Render proxy issues)
+    reconnection: true,             // Aggressively reconnect on drops
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 60000,                 // Match backend ping timeout
+    autoConnect: true
 });
 
 export function TimerProvider({ children }) {

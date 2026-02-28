@@ -14,7 +14,9 @@ const io = new Server(server, {
         methods: ['GET', 'POST']
     },
     transports: ['websocket', 'polling'], // Ensure compatibility with Render's proxies
-    allowEIO3: true // Allow older Socket.IO clients just in case
+    allowEIO3: true, // Allow older Socket.IO clients just in case
+    pingTimeout: 60000,   // Wait 60 seconds before closing an idle connection
+    pingInterval: 25000   // Send a ping every 25 seconds to keep Render proxy alive
 });
 
 const TOTAL_DURATION_SECONDS = 86400; // 24 hours
